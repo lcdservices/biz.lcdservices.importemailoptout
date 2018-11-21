@@ -24,7 +24,7 @@ function _civicrm_api3_email_opt_out_Import_spec(&$spec) {
  */
 function civicrm_api3_email_opt_out_Import($params) {
   $limit = CRM_Utils_Array::value('limit', $params);
-  $i = 0;
+  $i = $p = 0;
 
   $path = CRM_Core_Resources::singleton()->getPath(CRM_Importemailoptout_ExtensionUtil::LONG_NAME);
   $file = $path.'/data/'.$params['file'];
@@ -41,17 +41,29 @@ function civicrm_api3_email_opt_out_Import($params) {
       SELECT id, contact_id
       FROM civicrm_email
       WHERE email = %1
-    ", [1 => [$row, 'String']]);
+      GROUP BY contact_id
+    ", [1 => [trim($row), 'String']]);
 
     while ($dao->fetch()) {
       //set all to opt out
+      try {
+        civicrm_api3('contact', 'create', [
+          'id' => $dao->contact_id,
+          'is_opt_out' => TRUE,
+        ]);
+
+        $p++;
+      }
+      catch (CRM_API3_Exception $e) {
+        Civi::log()->debug('civicrm_api3_email_opt_out_Import', ['e' => $e]);
+      }
     }
 
     $i++;
-    if (!empty($limit) && $i == $limit) {
+    if (!empty($limit) && $i >= $limit) {
       break;
     }
   }
 
-  return civicrm_api3_create_success(['processed' => $i], $params, 'EmailOptOut', 'import');
+  return civicrm_api3_create_success(['processed' => $i, 'updated' => $p], $params, 'EmailOptOut', 'import');
 }
