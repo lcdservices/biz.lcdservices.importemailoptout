@@ -35,7 +35,7 @@ function civicrm_api3_email_opt_out_Import($params) {
 
   $fd = fopen($file, 'r');
   while ($row = fgets($fd)) {
-    Civi::log()->debug('civicrm_api3_email_opt_out_Import', ['row' => $row]);
+    //Civi::log()->debug('civicrm_api3_email_opt_out_Import', ['row' => $row]);
 
     $dao = CRM_Core_DAO::executeQuery("
       SELECT id, contact_id
