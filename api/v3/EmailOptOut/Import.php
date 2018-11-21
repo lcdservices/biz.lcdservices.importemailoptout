@@ -10,7 +10,7 @@ use CRM_Importemailoptout_ExtensionUtil as E;
  * @see http://wiki.civicrm.org/confluence/display/CRMDOC/API+Architecture+Standards
  */
 function _civicrm_api3_email_opt_out_Import_spec(&$spec) {
-  $spec['magicword']['api.required'] = 1;
+  $spec['file']['api.required'] = 1;
 }
 
 /**
@@ -23,20 +23,35 @@ function _civicrm_api3_email_opt_out_Import_spec(&$spec) {
  * @throws API_Exception
  */
 function civicrm_api3_email_opt_out_Import($params) {
-  if (array_key_exists('magicword', $params) && $params['magicword'] == 'sesame') {
-    $returnValues = array(
-      // OK, return several data rows
-      12 => array('id' => 12, 'name' => 'Twelve'),
-      34 => array('id' => 34, 'name' => 'Thirty four'),
-      56 => array('id' => 56, 'name' => 'Fifty six'),
-    );
-    // ALTERNATIVE: $returnValues = array(); // OK, success
-    // ALTERNATIVE: $returnValues = array("Some value"); // OK, return a single value
+  $limit = CRM_Utils_Array::value('limit', $params);
+  $i = 0;
 
-    // Spec: civicrm_api3_create_success($values = 1, $params = array(), $entity = NULL, $action = NULL)
-    return civicrm_api3_create_success($returnValues, $params, 'NewEntity', 'NewAction');
+  $path = CRM_Core_Resources::singleton()->getPath(CRM_Importemailoptout_ExtensionUtil::LONG_NAME);
+  $file = $path.'/data/'.$params['file'];
+
+  if (!file_exists($file)) {
+    throw new API_Exception('File could not be found.', 900);
   }
-  else {
-    throw new API_Exception(/*errorMessage*/ 'Everyone knows that the magicword is "sesame"', /*errorCode*/ 1234);
+
+  $fd = fopen($file, 'r');
+  while ($row = fgets($fd)) {
+    Civi::log()->debug('civicrm_api3_email_opt_out_Import', ['row' => $row]);
+
+    $dao = CRM_Core_DAO::executeQuery("
+      SELECT id, contact_id
+      FROM civicrm_email
+      WHERE email = %1
+    ", [1 => [$row, 'String']]);
+
+    while ($dao->fetch()) {
+      //set all to opt out
+    }
+
+    $i++;
+    if (!empty($limit) && $i == $limit) {
+      break;
+    }
   }
+
+  return civicrm_api3_create_success(['processed' => $i], $params, 'EmailOptOut', 'import');
 }
