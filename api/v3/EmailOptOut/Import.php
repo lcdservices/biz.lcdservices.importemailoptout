@@ -24,6 +24,7 @@ function _civicrm_api3_email_opt_out_Import_spec(&$spec) {
  */
 function civicrm_api3_email_opt_out_Import($params) {
   $limit = CRM_Utils_Array::value('limit', $params);
+  $group = CRM_Utils_Array::value('group', $params);
   $i = $p = 0;
 
   $path = CRM_Core_Resources::singleton()->getPath(CRM_Importemailoptout_ExtensionUtil::LONG_NAME);
@@ -51,6 +52,14 @@ function civicrm_api3_email_opt_out_Import($params) {
           'id' => $dao->contact_id,
           'is_opt_out' => TRUE,
         ]);
+
+        if ($group) {
+          civicrm_api3('GroupContact', 'create', [
+            'group_id' => $group,
+            'contact_id' => $dao->contact_id,
+            'status' => 'Removed',
+          ]);
+        }
 
         $p++;
       }
