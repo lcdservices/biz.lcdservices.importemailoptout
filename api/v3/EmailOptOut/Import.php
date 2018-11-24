@@ -11,8 +11,12 @@ use CRM_Importemailoptout_ExtensionUtil as E;
  */
 function _civicrm_api3_email_opt_out_Import_spec(&$spec) {
   $spec['file']['api.required'] = 1;
-  $spec['file']['description'] = 'Required. Full file name, e.g. MyEmailList.txt';
+  $spec['file']['description'] = 'Required. Full file name, found in the extension /data directory. e.g. MyEmailList.txt';
+
+  $spec['limit']['api.required'] = 0;
   $spec['limit']['description'] = 'Optionally set a value for the number of records you want to process. This is helpful when testing the extension before processing your entire file.';
+
+  $spec['group']['api.required'] = 0;
   $spec['group']['description'] = 'Optionally enter a group ID to remove matching contacts from the group.';
 }
 

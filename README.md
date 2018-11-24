@@ -17,8 +17,6 @@ After installing and enabling the extension, go to Support > Developer > API Exp
 * limit (optional): number of records to process. If not present, empty, or 0, all rows will be processed. The limit parameter counts based on the text file row, so if multiple contacts have a matching email, they will all be processed.
 * group (optional): the ID of a group to remove contacts from during processing.
 
-Note: you may need to select "Other..." in the parameter selection field and type in the limit and group parameters.
-
 The extension is licensed under [AGPL-3.0](LICENSE.txt).
 
 ## Requirements
