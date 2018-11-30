@@ -42,31 +42,28 @@ function civicrm_api3_email_opt_out_Import($params) {
     throw new API_Exception('File could not be found.', 900);
   }
 
+  if (!$skipFilter) {
+    $loggedEmails = _optout_getLoggedEmails();
+  }
+
   $fd = fopen($file, 'r');
-  while ($row = fgets($fd)) {
-    //Civi::log()->debug('civicrm_api3_email_opt_out_Import', ['row' => $row]);
+  while ($email = fgets($fd)) {
+    $email = trim($email);
+    //Civi::log()->debug('civicrm_api3_email_opt_out_Import', ['$email' => $email]);
 
-    if ($skipFilter) {
-      $sql = "
-        SELECT id, contact_id
-        FROM civicrm_email
-        WHERE email = %1
-        GROUP BY contact_id
-      ";
-    }
-    else {
-      $sql = "
-        SELECT e.id, e.contact_id
-        FROM civicrm_email e
-        LEFT JOIN civicrm_ia_emailoptout_log ia
-          ON e.email = ia.email
-        WHERE e.email = %1
-          AND ia.id IS NULL
-        GROUP BY e.contact_id
-      ";
+    //if we're not skipping the filter and the email has already been logged, skip
+    if (!$skipFilter && !empty($loggedEmails) && in_array($email, $loggedEmails)) {
+      continue;
     }
 
-    $dao = CRM_Core_DAO::executeQuery($sql, [1 => [trim($row), 'String']]);
+    $sql = "
+      SELECT id, contact_id
+      FROM civicrm_email
+      WHERE email = %1
+      GROUP BY contact_id
+    ";
+
+    $dao = CRM_Core_DAO::executeQuery($sql, [1 => [$email, 'String']]);
 
     while ($dao->fetch()) {
       //set all to opt out
@@ -84,7 +81,7 @@ function civicrm_api3_email_opt_out_Import($params) {
           ]);
         }
 
-        _optout_logEmail(trim($row), 'processed');
+        _optout_logEmail($email, 'processed');
 
         $p++;
       }
@@ -94,7 +91,7 @@ function civicrm_api3_email_opt_out_Import($params) {
     }
 
     if (empty($dao->N)) {
-      _optout_logEmail(trim($row), 'unmatched');
+      _optout_logEmail($email, 'unmatched');
     }
 
     $i++;
@@ -116,4 +113,18 @@ function _optout_logEmail($email, $status) {
     1 => [$email, 'String'],
     2 => [$status, 'String'],
   ]);
+}
+
+function _optout_getLoggedEmails() {
+  $dao = CRM_Core_DAO::executeQuery("
+    SELECT email
+    FROM civicrm_ia_emailoptout_log
+  ");
+
+  $emails = array();
+  while ($dao->fetch()) {
+    $emails[] = $dao->email;
+  }
+
+  return $emails;
 }
