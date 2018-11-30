@@ -32,6 +32,7 @@ function _civicrm_api3_email_opt_out_Import_spec(&$spec) {
 function civicrm_api3_email_opt_out_Import($params) {
   $limit = CRM_Utils_Array::value('limit', $params);
   $group = CRM_Utils_Array::value('group', $params);
+  $skipFilter = CRM_Utils_Array::value('skipFilter', $params, 0);
   $i = $p = 0;
 
   $path = CRM_Core_Resources::singleton()->getPath(CRM_Importemailoptout_ExtensionUtil::LONG_NAME);
@@ -45,12 +46,27 @@ function civicrm_api3_email_opt_out_Import($params) {
   while ($row = fgets($fd)) {
     //Civi::log()->debug('civicrm_api3_email_opt_out_Import', ['row' => $row]);
 
-    $dao = CRM_Core_DAO::executeQuery("
-      SELECT id, contact_id
-      FROM civicrm_email
-      WHERE email = %1
-      GROUP BY contact_id
-    ", [1 => [trim($row), 'String']]);
+    if ($skipFilter) {
+      $sql = "
+        SELECT id, contact_id
+        FROM civicrm_email
+        WHERE email = %1
+        GROUP BY contact_id
+      ";
+    }
+    else {
+      $sql = "
+        SELECT e.id, e.contact_id
+        FROM civicrm_email e
+        LEFT JOIN civicrm_ia_emailoptout_log ia
+          ON e.email = ia.email
+        WHERE e.email = %1
+          AND ia.id IS NULL
+        GROUP BY e.contact_id
+      ";
+    }
+
+    $dao = CRM_Core_DAO::executeQuery($sql, [1 => [trim($row), 'String']]);
 
     while ($dao->fetch()) {
       //set all to opt out
@@ -68,11 +84,17 @@ function civicrm_api3_email_opt_out_Import($params) {
           ]);
         }
 
+        _optout_logEmail(trim($row), 'processed');
+
         $p++;
       }
       catch (CRM_API3_Exception $e) {
         Civi::log()->debug('civicrm_api3_email_opt_out_Import', ['e' => $e]);
       }
+    }
+
+    if (empty($dao->N)) {
+      _optout_logEmail(trim($row), 'unmatched');
     }
 
     $i++;
@@ -82,4 +104,16 @@ function civicrm_api3_email_opt_out_Import($params) {
   }
 
   return civicrm_api3_create_success(['processed' => $i, 'updated' => $p], $params, 'EmailOptOut', 'import');
+}
+
+function _optout_logEmail($email, $status) {
+  CRM_Core_DAO::executeQuery("
+    INSERT IGNORE INTO civicrm_ia_emailoptout_log
+    (email, status)
+    VALUES
+    (%1, %2)
+  ", [
+    1 => [$email, 'String'],
+    2 => [$status, 'String'],
+  ]);
 }
